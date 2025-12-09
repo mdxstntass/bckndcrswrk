@@ -1,0 +1,168 @@
+require("dotenv").config();
+const path = require("path");
+const express = require("express");
+const morgan = require("morgan");
+const { MongoClient, ObjectId } = require("mongodb");
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+const MONGO_URL = process.env.MONGO_URL;
+const DB_NAME = process.env.DB_NAME || "cst3144";
+
+if (!MONGO_URL) {
+  console.warn("MONGO_URL not set. Set it in .env before starting the server.");
+}
+
+app.use(express.json());
+
+// Basic CORS (mirror origin)
+app.use((req, res, next) => {
+  const origin = req.headers.origin || "*";
+  res.header("Access-Control-Allow-Origin", origin);
+  res.header("Access-Control-Allow-Credentials", "true");
+  res.header(
+    "Access-Control-Allow-Methods",
+    "GET,HEAD,OPTIONS,POST,PUT,PATCH,DELETE"
+  );
+  res.header(
+    "Access-Control-Allow-Headers",
+    "Content-Type, Authorization, X-Requested-With"
+  );
+  if (req.method === "OPTIONS") return res.sendStatus(204);
+  next();
+});
+
+// Logger middleware
+app.use(
+  morgan((tokens, req, res) => {
+    const time = tokens["date"](req, res, "iso");
+    return `[${time}] ${tokens.method(req, res)} ${tokens.url(
+      req,
+      res
+    )} ${tokens.status(req, res)} ${tokens["response-time"](req, res)}ms`;
+  })
+);
+
+// Static images under /images
+const imagesDir = path.join(__dirname, "public", "images");
+app.use("/images", express.static(imagesDir));
+
+let client;
+let db;
+
+async function connectDb() {
+  client = new MongoClient(MONGO_URL);
+  await client.connect();
+  db = client.db(DB_NAME);
+  console.log("Connected to MongoDB", DB_NAME);
+}
+
+// Ensure DB is available
+app.use((req, res, next) => {
+  if (!db) return res.status(503).send("Database not connected yet");
+  next();
+});
+
+const lessonsCollection = () => db.collection("lessons");
+const ordersCollection = () => db.collection("orders");
+
+// GET all lessons
+app.get("/lessons", async (req, res, next) => {
+  try {
+    const items = await lessonsCollection().find({}).toArray();
+    res.json(items);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Search lessons
+app.get("/search", async (req, res, next) => {
+  try {
+    const q = (req.query.q || "").trim();
+    if (!q) return res.status(400).send("Missing search query 'q'");
+
+    const isNumeric = !Number.isNaN(Number(q));
+    let query;
+    if (isNumeric) {
+      const num = Number(q);
+      query = { $or: [{ price: num }, { spaces: num }] };
+    } else {
+      const regex = { $regex: q, $options: "i" };
+      query = {
+        $or: [
+          { subject: regex },
+          { location: regex },
+          { description: regex },
+        ],
+      };
+    }
+
+    const results = await lessonsCollection().find(query).toArray();
+    res.json(results);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Update spaces (generic PUT)
+app.put("/lessons/:id", async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { spacesDelta } = req.body;
+    const delta = Number(spacesDelta);
+    if (Number.isNaN(delta)) {
+      return res.status(400).send("spacesDelta must be a number");
+    }
+    const result = await lessonsCollection().findOneAndUpdate(
+      { _id: new ObjectId(id) },
+      { $inc: { spaces: delta } },
+      { returnDocument: "after" }
+    );
+    if (!result.value) return res.status(404).send("Lesson not found");
+    res.json(result.value);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Create order
+app.post("/orders", async (req, res, next) => {
+  try {
+    const order = req.body;
+    if (!order || !order.items || !order.name || !order.phone) {
+      return res.status(400).send("Invalid order payload");
+    }
+    const inserted = await ordersCollection().insertOne({
+      ...order,
+      createdAt: new Date(),
+    });
+    res.json({ ok: true, orderId: inserted.insertedId });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Fallback for missing images
+app.use("/images", (req, res) => {
+  res.status(404).send("Image not found");
+});
+
+// Error handler
+app.use((err, req, res, next) => {
+  console.error(err);
+  res.status(500).send("Server error");
+});
+
+connectDb()
+  .then(() => {
+    app.listen(PORT, () => {
+      console.log(`API listening on http://localhost:${PORT}`);
+    });
+  })
+  .catch((err) => {
+    console.error("Failed to start server", err);
+    process.exit(1);
+  });
+
+
