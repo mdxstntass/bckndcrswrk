@@ -3,8 +3,6 @@ git link: https://github.com/mdxstntass/bckndcrswrk.git
 AWS render: https://bckndcrswrk.onrender.com
 
 
-
-
 # CST3144 Backend
 
 Simple Express + MongoDB API for lessons and orders.
@@ -31,5 +29,4 @@ Simple Express + MongoDB API for lessons and orders.
 ## Notes
 - Static images are served from `public/images` at `/images/...`.
 - If MongoDB is not connected yet, requests return `503` until the connection succeeds.
-
 
