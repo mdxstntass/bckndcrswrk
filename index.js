@@ -151,7 +151,7 @@ app.use("/images", (req, res) => {
   res.status(404).send("Image not found");
 });
 
-// Error handler
+// Error handler    
 app.use((err, req, res, next) => {
   console.error(err);
   res.status(500).send("Server error");
