@@ -13,7 +13,7 @@ pnpm-debug.log*
 .env.local
 .env.*.local
 
-# Coverage and build output
+# Coverage and build output  
 coverage/
 dist/
 build/
