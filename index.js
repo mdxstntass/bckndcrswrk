@@ -9,15 +9,15 @@ const PORT = process.env.PORT || 3000;
 const MONGO_URL = process.env.MONGO_URL;
 const DB_NAME = process.env.DB_NAME || "cst3144";
 
-// Warn early if DB connection string is missing
+// Warn early if DB connection string is missing; server still starts but rejects requests until DB connects
 if (!MONGO_URL) {
   console.warn("MONGO_URL not set. Set it in .env before starting the server.");
 }
 
-// Parse JSON bodies
+// Parse JSON bodies so req.body is available for POST/PUT/PATCH
 app.use(express.json());
 
-// Basic CORS (mirrors incoming origin; allows common methods/headers)
+// Basic CORS (mirrors incoming origin; allows common methods/headers for browsers during local dev)
 app.use((req, res, next) => {
   const origin = req.headers.origin || "*";
   res.header("Access-Control-Allow-Origin", origin);
@@ -34,7 +34,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// HTTP request logger
+// HTTP request logger with ISO timestamp for easier debugging
 app.use(
   morgan((tokens, req, res) => {
     const time = tokens["date"](req, res, "iso");
@@ -52,7 +52,7 @@ app.use("/images", express.static(imagesDir));
 let client;
 let db;
 
-// Establish MongoDB connection and select DB
+// Establish MongoDB connection and select DB; stored in module scope for reuse
 async function connectDb() {
   client = new MongoClient(MONGO_URL);
   await client.connect();
@@ -60,7 +60,7 @@ async function connectDb() {
   console.log("Connected to MongoDB", DB_NAME);
 }
 
-// Ensure DB is available before handling requests
+// Ensure DB is available before handling requests; protects routes from running with undefined db
 app.use((req, res, next) => {
   if (!db) return res.status(503).send("Database not connected yet");
   next();
@@ -69,7 +69,7 @@ app.use((req, res, next) => {
 const lessonsCollection = () => db.collection("lessons");
 const ordersCollection = () => db.collection("orders");
 
-// GET all lessons
+// GET all lessons (no filters)
 app.get("/lessons", async (req, res, next) => {
   try {
     const items = await lessonsCollection().find({}).toArray();
@@ -79,7 +79,7 @@ app.get("/lessons", async (req, res, next) => {
   }
 });
 
-// Search lessons
+// Search lessons by subject/location/description (partial) or by exact numeric price/spaces
 app.get("/search", async (req, res, next) => {
   try {
     const q = (req.query.q || "").trim();
@@ -108,7 +108,7 @@ app.get("/search", async (req, res, next) => {
   }
 });
 
-// Update spaces (generic PUT)
+// Update spaces (generic PUT) increments/decrements by provided delta
 app.put("/lessons/:id", async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -129,7 +129,7 @@ app.put("/lessons/:id", async (req, res, next) => {
   }
 });
 
-// Create order
+// Create order; minimal validation (requires items, name, phone) and stamps createdAt
 app.post("/orders", async (req, res, next) => {
   try {
     const order = req.body;
