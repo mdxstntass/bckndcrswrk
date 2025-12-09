@@ -146,7 +146,7 @@ app.post("/orders", async (req, res, next) => {
   }
 });
 
-// Fallback for missing images
+// Fallback for missing images  
 app.use("/images", (req, res) => {
   res.status(404).send("Image not found");
 });
