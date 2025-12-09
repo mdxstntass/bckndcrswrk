@@ -9,13 +9,15 @@ const PORT = process.env.PORT || 3000;
 const MONGO_URL = process.env.MONGO_URL;
 const DB_NAME = process.env.DB_NAME || "cst3144";
 
+// Warn early if DB connection string is missing
 if (!MONGO_URL) {
   console.warn("MONGO_URL not set. Set it in .env before starting the server.");
 }
 
+// Parse JSON bodies
 app.use(express.json());
 
-// Basic CORS (mirror origin)
+// Basic CORS (mirrors incoming origin; allows common methods/headers)
 app.use((req, res, next) => {
   const origin = req.headers.origin || "*";
   res.header("Access-Control-Allow-Origin", origin);
@@ -32,7 +34,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// Logger middleware
+// HTTP request logger
 app.use(
   morgan((tokens, req, res) => {
     const time = tokens["date"](req, res, "iso");
@@ -50,6 +52,7 @@ app.use("/images", express.static(imagesDir));
 let client;
 let db;
 
+// Establish MongoDB connection and select DB
 async function connectDb() {
   client = new MongoClient(MONGO_URL);
   await client.connect();
@@ -57,7 +60,7 @@ async function connectDb() {
   console.log("Connected to MongoDB", DB_NAME);
 }
 
-// Ensure DB is available
+// Ensure DB is available before handling requests
 app.use((req, res, next) => {
   if (!db) return res.status(503).send("Database not connected yet");
   next();
@@ -154,6 +157,7 @@ app.use((err, req, res, next) => {
   res.status(500).send("Server error");
 });
 
+// Connect to DB and start server
 connectDb()
   .then(() => {
     app.listen(PORT, () => {
