@@ -20,9 +20,9 @@ Simple Express + MongoDB API for lessons and orders.
 - `PUT /lessons/:id` — body `{ spacesDelta: number }` to increment/decrement available spaces.
 - `POST /orders` — body requires `items`, `name`, `phone`; stores with `createdAt`.
 
+
 ## Notes
 - Static images are served from `public/images` at `/images/...`.
 - If MongoDB is not connected yet, requests return `503` until the connection succeeds.
-
 
 
