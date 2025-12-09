@@ -24,3 +24,5 @@ Simple Express + MongoDB API for lessons and orders.
 - Static images are served from `public/images` at `/images/...`.
 - If MongoDB is not connected yet, requests return `503` until the connection succeeds.
 
+
+

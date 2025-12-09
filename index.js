@@ -108,7 +108,7 @@ app.get("/search", async (req, res, next) => {
   }
 });
 
-// Update spaces (generic PUT) increments/decrements by provided delta
+// Update spaces (generic PUT) increments/decrements by provided delta 
 app.put("/lessons/:id", async (req, res, next) => {
   try {
     const { id } = req.params;
